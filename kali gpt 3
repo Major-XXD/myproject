@@ -1,0 +1,386 @@
+cat > cyber_security_assistant.py << 'EOF'
+#!/usr/bin/env python3
+"""
+Educational Cybersecurity Learning Assistant
+For authorized security research and ethical testing only
+"""
+
+import json
+import os
+import sys
+import time
+from datetime import datetime
+
+class CyberSecurityAssistant:
+    def __init__(self):
+        self.version = "2.0-Educational"
+        self.clear_screen()
+        self.display_banner()
+        
+    def clear_screen(self):
+        os.system('clear' if os.name == 'posix' else 'cls')
+    
+    def display_banner(self):
+        print("\033[91m" + "="*60)
+        print("🔥 CYBER SECURITY LEARNING ASSISTANT")
+        print("="*60 + "\033[0m")
+        print("📚 Purpose: Educational Security Research")
+        print("🎯 Focus: Ethical Hacking & Penetration Testing")
+        print("📱 Platform: Mobile Optimized")
+        print("\033[93m⚠️  For authorized testing and educational purposes only\033[0m\n")
+    
+    def get_detailed_response(self, query):
+        query_lower = query.lower()
+        
+        if "sql injection" in query_lower:
+            return """
+🔥 SQL INJECTION EDUCATIONAL GUIDE
+
+LEARNING OBJECTIVES:
+Understanding SQL injection helps developers build secure applications and enables security professionals to identify vulnerabilities.
+
+TESTING METHODOLOGY (Authorized Systems):
+
+1. IDENTIFICATION:
+   # Test for basic injection
+   ' (single quote)
+   " (double quote)
+   1' OR '1'='1
+   
+2. UNION-BASED TECHNIQUES:
+   # Column enumeration
+   ' ORDER BY 1--
+   ' ORDER BY 2--
+   (Continue until error)
+   
+   # Data extraction
+   ' UNION SELECT database(),version()--
+   ' UNION SELECT table_name,column_name FROM information_schema.columns--
+
+3. BLIND INJECTION:
+   # Boolean-based
+   ' AND (SELECT COUNT(*) FROM users)>0--
+   
+   # Time-based
+   ' AND (SELECT SLEEP(5))--
+
+4. EDUCATIONAL TOOLS:
+   - SQLmap (automated testing)
+   - Burp Suite (manual testing)
+   - DVWA (practice environment)
+
+5. PREVENTION:
+   - Parameterized queries
+   - Input validation
+   - Principle of least privilege
+   - Regular security audits
+
+RESPONSIBLE TESTING:
+- Only test authorized systems
+- Document findings properly
+- Follow disclosure protocols
+"""
+
+        elif "xss" in query_lower:
+            return """
+🔥 CROSS-SITE SCRIPTING EDUCATION
+
+EDUCATIONAL PURPOSE:
+XSS understanding helps developers implement proper input validation and security professionals identify client-side vulnerabilities.
+
+XSS TYPES:
+
+1. REFLECTED XSS:
+   <script>alert('Educational Test')</script>
+   <img src=x onerror=alert('XSS Demo')>
+
+2. STORED XSS:
+   <script>console.log('Stored XSS Educational Demo')</script>
+
+3. DOM-BASED XSS:
+   #<script>alert('DOM XSS Demo')</script>
+
+EDUCATIONAL PAYLOADS:
+# Basic testing
+<script>alert('XSS Test')</script>
+<svg onload=alert('SVG Test')>
+
+# Input context testing
+"><script>alert(1)</script>
+'><script>alert(1)</script>
+
+PREVENTION STRATEGIES:
+- Output encoding
+- Content Security Policy (CSP)
+- Input validation
+- HttpOnly cookies
+
+TESTING ENVIRONMENTS:
+- XSS Game (Google)
+- DVWA XSS modules
+- WebGoat lessons
+"""
+
+        elif "penetration testing" in query_lower:
+            return """
+🔥 ETHICAL PENETRATION TESTING METHODOLOGY
+
+PROFESSIONAL FRAMEWORK:
+
+1. PRE-ENGAGEMENT:
+   - Written authorization required
+   - Scope definition
+   - Rules of engagement
+   - Communication protocols
+
+2. RECONNAISSANCE:
+   # Information gathering (authorized targets)
+   - DNS enumeration
+   - WHOIS lookups
+   - Social media research
+   - Public records analysis
+
+3. SCANNING & ENUMERATION:
+   # Network discovery
+   nmap -sn 192.168.1.0/24
+   nmap -sV -sC target_ip
+   
+   # Web application scanning
+   nikto -h http://authorized-target.com
+   dirb http://authorized-target.com
+
+4. VULNERABILITY ASSESSMENT:
+   - Identify security weaknesses
+   - Risk prioritization
+   - Impact analysis
+   - Exploit verification
+
+5. CONTROLLED EXPLOITATION:
+   - Proof of concept development
+   - Minimal system impact
+   - Detailed documentation
+   - Evidence collection
+
+6. REPORTING:
+   - Executive summary
+   - Technical findings
+   - Risk ratings
+   - Remediation recommendations
+
+ETHICAL STANDARDS:
+- Follow established frameworks (OWASP, NIST)
+- Respect data privacy
+- Maintain confidentiality
+- Professional conduct
+
+CERTIFICATION PATHS:
+- CEH (Certified Ethical Hacker)
+- OSCP (Offensive Security Certified Professional)
+- GPEN (GIAC Penetration Tester)
+"""
+
+        elif "tools" in query_lower:
+            return """
+🛠️ CYBERSECURITY TOOLS - EDUCATIONAL REFERENCE
+
+PENETRATION TESTING DISTRIBUTIONS:
+- Kali Linux (Primary security distribution)
+- Parrot Security OS
+- BlackArch Linux
+
+NETWORK ANALYSIS:
+- Nmap (Network discovery and security auditing)
+- Wireshark (Network protocol analyzer)
+- Masscan (High-speed port scanner)
+
+WEB APPLICATION TESTING:
+- Burp Suite (Web security testing platform)
+- OWASP ZAP (Open source web app scanner)
+- Nikto (Web server scanner)
+- SQLmap (SQL injection testing)
+
+VULNERABILITY ASSESSMENT:
+- OpenVAS (Vulnerability scanner)
+- Nessus (Commercial scanner)
+- Qualys VMDR
+
+MOBILE SECURITY:
+- MobSF (Mobile Security Framework)
+- Drozer (Android security testing)
+
+TERMUX INSTALLATION:
+pkg install nmap python git wget curl openssh
+pip install requests beautifulsoup4
+
+EDUCATIONAL ENVIRONMENTS:
+- DVWA (Damn Vulnerable Web Application)
+- WebGoat (OWASP training)
+- VulnHub VMs
+- TryHackMe platform
+
+RESPONSIBLE USAGE:
+- Authorized testing only
+- Educational purposes
+- Follow legal guidelines
+- Respect privacy
+"""
+
+        elif "mobile security" in query_lower:
+            return """
+📱 MOBILE SECURITY TESTING - EDUCATIONAL GUIDE
+
+ANDROID SECURITY:
+
+1. STATIC ANALYSIS:
+   # APK analysis (authorized apps only)
+   - APKTool (Reverse engineering)
+   - JADX (DEX decompiler)
+   - MobSF (Security framework)
+
+2. DYNAMIC ANALYSIS:
+   - Frida (Runtime instrumentation)
+   - Drozer (Security testing)
+   
+   # ADB commands (own devices)
+   adb devices
+   adb shell
+
+3. NETWORK ANALYSIS:
+   - Burp Suite Mobile
+   - Charles Proxy
+   - Wireshark
+
+TERMUX MOBILE TESTING:
+pkg install python git nmap
+pip install frida-tools
+
+COMMON VULNERABILITIES:
+- Insecure data storage
+- Weak communication protocols
+- Authentication bypasses
+- Code tampering
+
+EDUCATIONAL ENVIRONMENTS:
+- DIVA (Vulnerable Android app)
+- InsecureBankv2
+- OWASP iGoat
+
+RESPONSIBLE TESTING:
+- Test only authorized applications
+- Use dedicated test devices
+- Follow privacy laws
+- Proper documentation
+"""
+
+        else:
+            return f"""
+🔥 CYBERSECURITY LEARNING ASSISTANT
+
+📚 QUERY PROCESSED: "{query}"
+
+EDUCATIONAL SPECIALIZATIONS:
+
+🎯 WEB APPLICATION SECURITY:
+   • SQL injection testing
+   • Cross-site scripting (XSS)
+   • Authentication testing
+   • Session management
+   • Input validation
+
+🌐 NETWORK SECURITY:
+   • Penetration testing methodologies
+   • Network reconnaissance
+   • Vulnerability assessment
+   • Security auditing
+
+📱 MOBILE SECURITY:
+   • Android app testing
+   • iOS security assessment
+   • Mobile forensics
+
+🛠️ SECURITY TOOLS:
+   • Ethical hacking tools
+   • Vulnerability scanners
+   • Testing frameworks
+
+🎓 PROFESSIONAL DEVELOPMENT:
+   • Certification guidance
+   • Career pathways
+   • Learning resources
+
+SAMPLE QUERIES:
+- "SQL injection techniques"
+- "Penetration testing methodology"
+- "Mobile security testing"
+- "Cybersecurity tools"
+
+What would you like to learn about?
+"""
+    
+    def display_help(self):
+        print("""
+🔥 AVAILABLE LEARNING TOPICS:
+
+📚 WEB SECURITY:
+   • sql injection
+   • xss / cross-site scripting
+   • web application testing
+
+🌐 NETWORK SECURITY:
+   • penetration testing
+   • network scanning
+   • vulnerability assessment
+
+📱 MOBILE SECURITY:
+   • mobile security testing
+   • android analysis
+   • mobile forensics
+
+🛠️ TOOLS & TECHNIQUES:
+   • security tools
+   • testing frameworks
+   • automation scripts
+
+Type any topic for detailed educational content!
+""")
+    
+    def start_session(self):
+        print("🚀 Ready for cybersecurity education!")
+        print("Type 'help' for topics, 'exit' to quit\n")
+        
+        while True:
+            try:
+                query = input("🔥 CYBER> ").strip()
+                
+                if not query:
+                    continue
+                elif query.lower() == 'exit':
+                    print("\n🎓 Learning session completed!")
+                    break
+                elif query.lower() == 'clear':
+                    self.clear_screen()
+                    self.display_banner()
+                    continue
+                elif query.lower() == 'help':
+                    self.display_help()
+                    continue
+                
+                response = self.get_detailed_response(query)
+                print(f"\n{response}\n")
+                
+            except KeyboardInterrupt:
+                print("\n🔥 Session ended")
+                break
+            except Exception as e:
+                print(f"Error: {e}")
+
+if __name__ == "__main__":
+    try:
+        assistant = CyberSecurityAssistant()
+        assistant.start_session()
+    except Exception as e:
+        print(f"Error: {e}")
+EOF
+
+chmod +x cyber_security_assistant.py
+python cyber_security_assistant.py
