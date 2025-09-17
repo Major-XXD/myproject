@@ -1,0 +1,127 @@
+# Stop all services first
+pkill nginx
+pkill php-cgi
+pkill dnsmasq
+
+# Check what's running
+ps aux | grep -E "(nginx|php|dnsmasq)"
+
+# Remove old socket
+rm -f /tmp/php.socket
+
+# Start PHP-CGI directly with simpler method
+php-cgi -b 127.0.0.1:9000 &
+
+# Wait for PHP to start
+sleep 3
+
+# Check if PHP is running
+ps aux | grep php-cgi
+
+# Update nginx config to use TCP instead of socket
+cat > ~/pihole/nginx_pihole.conf << 'EOF'
+worker_processes 1;
+error_log /data/data/com.termux/files/home/pihole/var/log/nginx_error.log warn;
+pid /data/data/com.termux/files/home/pihole/var/run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /data/data/com.termux/files/usr/etc/nginx/mime.types;
+    default_type application/octet-stream;
+    
+    access_log /data/data/com.termux/files/home/pihole/var/log/nginx_access.log;
+    
+    sendfile on;
+    keepalive_timeout 65;
+    
+    server {
+        listen 8080;
+        server_name localhost;
+        
+        root /data/data/com.termux/files/home/nginx/html;
+        index index.html index.php;
+        
+        # Main site
+        location / {
+            try_files $uri $uri/ =404;
+        }
+        
+        # Pi-hole admin interface
+        location /admin/ {
+            alias /data/data/com.termux/files/home/pihole/var/www/html/admin/;
+            index index.php index.html;
+            
+            location ~ \.php$ {
+                fastcgi_pass 127.0.0.1:9000;
+                fastcgi_index index.php;
+                fastcgi_param SCRIPT_FILENAME $request_filename;
+                include /data/data/com.termux/files/usr/etc/nginx/fastcgi_params;
+            }
+        }
+        
+        # Handle /admin redirect
+        location = /admin {
+            return 301 /admin/;
+        }
+        
+        # PHP for main site
+        location ~ \.php$ {
+            try_files $uri =404;
+            fastcgi_pass 127.0.0.1:9000;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include /data/data/com.termux/files/usr/etc/nginx/fastcgi_params;
+        }
+    }
+}
+EOF
+
+# Start nginx
+nginx -c ~/pihole/nginx_pihole.conf
+
+# Start DNS server
+mkdir -p ~/pihole/var/run
+dnsmasq -C ~/pihole/etc/dnsmasq.conf --pid-file=~/pihole/var/run/dnsmasq.pid
+
+# Test if services are running
+echo ""
+echo "🔍 Service Status:"
+if pgrep nginx > /dev/null; then
+    echo "✅ Nginx: Running on port 8080"
+else
+    echo "❌ Nginx: Not running"
+fi
+
+if pgrep php-cgi > /dev/null; then
+    echo "✅ PHP-CGI: Running on port 9000"
+else
+    echo "❌ PHP-CGI: Not running"
+fi
+
+if pgrep dnsmasq > /dev/null; then
+    echo "✅ Dnsmasq: Running on port 53"
+else
+    echo "❌ Dnsmasq: Not running"
+fi
+
+echo ""
+echo "🧪 Testing PHP:"
+curl -s http://127.0.0.1:8080/admin/test.php
+
+echo ""
+echo "🌐 Access URLs:"
+echo "   Main: http://localhost:8080"
+echo "   Admin: http://localhost:8080/admin/"
+echo "   Test: http://localhost:8080/admin/test.php"
+
+# Check logs if there are still issues
+echo ""
+echo "📋 Recent nginx errors (if any):"
+if [ -f ~/pihole/var/log/nginx_error.log ]; then
+    tail -5 ~/pihole/var/log/nginx_error.log
+else
+    echo "No error log found"
+fi
