@@ -1,0 +1,53 @@
+# Install dnsmasq (it needs root-repo)
+pkg install root-repo
+pkg install dnsmasq
+
+# Stop old nginx that's using the wrong config
+pkill nginx
+
+# Start nginx with the new config that uses TCP (not socket)
+nginx -c ~/pihole/nginx_pihole.conf
+
+# Start dnsmasq for DNS blocking
+mkdir -p ~/pihole/var/run
+dnsmasq -C ~/pihole/etc/dnsmasq.conf --pid-file=~/pihole/var/run/dnsmasq.pid
+
+# Process blocklists for Pi-hole
+~/pihole/process_blocklists.sh
+
+# Test everything is working
+echo ""
+echo "🔍 Final Status Check:"
+if pgrep nginx > /dev/null; then
+    echo "✅ Nginx: Running"
+else
+    echo "❌ Nginx: Not running"
+fi
+
+if pgrep php-cgi > /dev/null; then
+    echo "✅ PHP-CGI: Running"
+else
+    echo "❌ PHP-CGI: Not running" 
+fi
+
+if pgrep dnsmasq > /dev/null; then
+    echo "✅ Dnsmasq: Running"
+else
+    echo "❌ Dnsmasq: Not running"
+fi
+
+echo ""
+echo "🧪 Testing Pi-hole Admin:"
+curl -s http://127.0.0.1:8080/admin/ | grep -o "<title>.*</title>"
+
+echo ""
+echo "🎉 SUCCESS! All services are running!"
+echo ""
+echo "🌐 Access your Pi-hole:"
+echo "   Pi-hole Admin: http://localhost:8080/admin/"
+echo "   Main Server: http://localhost:8080"
+echo "   Server Info: http://localhost:8080/info.php"
+echo ""
+echo "🛡️ To use Pi-hole DNS blocking:"
+echo "   Change your device DNS to: 127.0.0.1"
+echo "   Or configure your router to use this device's IP as DNS server"
