@@ -1,0 +1,329 @@
+# Stop current services
+~/pihole/stop_pihole.sh
+pkill nginx
+
+# Check what's running on port 8080
+netstat -tlnp | grep 8080
+ps aux | grep -E "(nginx|lighttpd|php)"
+
+# Kill any conflicting processes
+pkill lighttpd
+pkill php-cgi
+
+# Create integrated server configuration
+cat > ~/pihole/nginx_pihole.conf << 'EOF'
+worker_processes 1;
+error_log /data/data/com.termux/files/home/pihole/var/log/nginx_error.log;
+pid /data/data/com.termux/files/home/pihole/var/run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /data/data/com.termux/files/usr/etc/nginx/mime.types;
+    default_type application/octet-stream;
+    
+    access_log /data/data/com.termux/files/home/pihole/var/log/nginx_access.log;
+    
+    sendfile on;
+    keepalive_timeout 65;
+    
+    # Main server block
+    server {
+        listen 8080;
+        server_name localhost;
+        
+        root /data/data/com.termux/files/home/nginx/html;
+        index index.html index.php;
+        
+        # Main site
+        location / {
+            try_files $uri $uri/ =404;
+        }
+        
+        # Pi-hole admin interface
+        location /admin {
+            alias /data/data/com.termux/files/home/pihole/var/www/html/admin;
+            index index.php index.html;
+            
+            location ~ \.php$ {
+                fastcgi_pass unix:/tmp/php.socket;
+                fastcgi_index index.php;
+                fastcgi_param SCRIPT_FILENAME $request_filename;
+                include /data/data/com.termux/files/usr/etc/nginx/fastcgi_params;
+            }
+        }
+        
+        # Pi-hole API
+        location /admin/api {
+            alias /data/data/com.termux/files/home/pihole/var/www/html/admin;
+            
+            location ~ \.php$ {
+                fastcgi_pass unix:/tmp/php.socket;
+                fastcgi_index index.php;
+                fastcgi_param SCRIPT_FILENAME $request_filename;
+                include /data/data/com.termux/files/usr/etc/nginx/fastcgi_params;
+            }
+        }
+        
+        # PHP processing for main site
+        location ~ \.php$ {
+            fastcgi_pass unix:/tmp/php.socket;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include /data/data/com.termux/files/usr/etc/nginx/fastcgi_params;
+        }
+    }
+}
+EOF
+
+# Create PHP-FPM socket starter
+cat > ~/pihole/start_php.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+php-cgi -b unix:/tmp/php.socket &
+echo "PHP-CGI started on unix socket"
+EOF
+
+chmod +x ~/pihole/start_php.sh
+
+# Update the main server HTML to include Pi-hole link
+cat > ~/nginx/html/index.html << 'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🚀 Android Server + Pi-hole</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 40px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .status { 
+            background: #4CAF50; 
+            padding: 10px; 
+            border-radius: 8px; 
+            margin: 20px 0;
+        }
+        .links {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        .btn {
+            background: #ff6b6b;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+        .btn:hover { background: #ff5252; }
+        .stats {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Android Server Online!</h1>
+        <div class="status">
+            <strong>✅ Server Status: RUNNING</strong><br>
+            Device: Samsung Galaxy S9+<br>
+            Platform: Termux + Nginx + Pi-hole
+        </div>
+        
+        <div class="stats">
+            <h3>📊 Server Stats</h3>
+            <p><strong>Server Time:</strong> <span id="time"></span></p>
+            <p><strong>Services:</strong> Nginx ✅ | Pi-hole DNS ✅ | Ngrok ✅</p>
+        </div>
+        
+        <div class="links">
+            <a href="/admin" class="btn">🛡️ Pi-hole Admin</a>
+            <a href="/info.php" class="btn">📋 Server Info</a>
+        </div>
+        
+        <p style="margin-top: 30px; font-size: 14px; opacity: 0.8;">
+            🔒 Network-wide ad blocking active<br>
+            🌍 Accessible via Ngrok tunnel
+        </p>
+    </div>
+
+    <script>
+        function updateTime() {
+            document.getElementById('time').textContent = new Date().toString();
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+</body>
+</html>
+EOF
+
+# Create info page with Pi-hole stats
+cat > ~/nginx/html/info.php << 'EOF'
+<?php
+$pihole_log = '/data/data/com.termux/files/home/pihole/var/log/pihole.log';
+$blocklist_file = '/data/data/com.termux/files/home/pihole/etc/adlists.list';
+
+function getPiholeStats() {
+    global $pihole_log, $blocklist_file;
+    
+    $stats = array(
+        'blocked_domains' => 0,
+        'queries_today' => 0,
+        'blocked_today' => 0,
+        'status' => 'Unknown'
+    );
+    
+    // Count blocked domains
+    if (file_exists($blocklist_file)) {
+        $stats['blocked_domains'] = count(file($blocklist_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES));
+    }
+    
+    // Check if dnsmasq is running
+    $dnsmasq_running = shell_exec('pgrep dnsmasq') ? true : false;
+    $stats['status'] = $dnsmasq_running ? 'Active' : 'Inactive';
+    
+    return $stats;
+}
+
+$stats = getPiholeStats();
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Server Information</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .stat-box { background: #e3f2fd; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #2196F3; }
+        .header { color: #1976D2; margin-bottom: 20px; }
+        .status-active { color: #4CAF50; font-weight: bold; }
+        .status-inactive { color: #f44336; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="header">🚀 Android Server Information</h1>
+        
+        <div class="stat-box">
+            <h3>🛡️ Pi-hole Status</h3>
+            <p>Status: <span class="status-<?php echo strtolower($stats['status']); ?>"><?php echo $stats['status']; ?></span></p>
+            <p>Blocked Domains: <strong><?php echo number_format($stats['blocked_domains']); ?></strong></p>
+        </div>
+        
+        <div class="stat-box">
+            <h3>📱 Device Information</h3>
+            <p>Device: Samsung Galaxy S9+</p>
+            <p>OS: Android via Termux</p>
+            <p>Server: Nginx + PHP</p>
+            <p>DNS: Dnsmasq + Pi-hole</p>
+        </div>
+        
+        <div class="stat-box">
+            <h3>🌐 Network Services</h3>
+            <p>Web Server: Port 8080</p>
+            <p>DNS Server: Port 53</p>
+            <p>Server Time: <?php echo date('Y-m-d H:i:s T'); ?></p>
+        </div>
+        
+        <p><a href="/">&larr; Back to Home</a> | <a href="/admin">Pi-hole Admin &rarr;</a></p>
+    </div>
+</body>
+</html>
+EOF
+
+# Create unified startup script
+cat > ~/start_all_services.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+echo "🚀 Starting Android Server + Pi-hole..."
+
+# Stop any existing services
+pkill nginx
+pkill php-cgi
+pkill lighttpd
+if [ -f ~/pihole/var/run/dnsmasq.pid ]; then
+    kill $(cat ~/pihole/var/run/dnsmasq.pid) 2>/dev/null
+fi
+
+# Start PHP-CGI
+echo "Starting PHP-CGI..."
+~/pihole/start_php.sh
+
+# Process Pi-hole blocklists
+echo "Processing Pi-hole blocklists..."
+~/pihole/process_blocklists.sh
+
+# Start DNS server (dnsmasq)
+echo "Starting DNS server..."
+mkdir -p ~/pihole/var/run
+dnsmasq -C ~/pihole/etc/dnsmasq.conf --pid-file=~/pihole/var/run/dnsmasq.pid
+
+# Start Nginx with integrated config
+echo "Starting Nginx server..."
+nginx -c ~/pihole/nginx_pihole.conf
+
+# Start ngrok tunnel
+echo "Starting ngrok tunnel..."
+pkill ngrok
+ngrok http 8080 --subdomain wmw-android-server > /dev/null 2>&1 &
+
+sleep 3
+
+echo ""
+echo "✅ All services started successfully!"
+echo ""
+echo "🌐 Local access:"
+echo "   Main site: http://localhost:8080"
+echo "   Pi-hole Admin: http://localhost:8080/admin"
+echo "   Server Info: http://localhost:8080/info.php"
+echo ""
+echo "🌍 External access:"
+echo "   Ngrok URL: https://wmw-android-server.ngrok.io"
+echo ""
+echo "🛡️ DNS Server: 127.0.0.1:53"
+echo "   Change your device DNS to 127.0.0.1 to use Pi-hole"
+echo ""
+EOF
+
+chmod +x ~/start_all_services.sh
+
+# Create stop script
+cat > ~/stop_all_services.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+echo "Stopping all services..."
+
+pkill nginx
+pkill php-cgi
+pkill ngrok
+
+if [ -f ~/pihole/var/run/dnsmasq.pid ]; then
+    kill $(cat ~/pihole/var/run/dnsmasq.pid)
+    rm ~/pihole/var/run/dnsmasq.pid
+fi
+
+echo "All services stopped."
+EOF
+
+chmod +x ~/stop_all_services.sh
+
+# Start everything
+~/start_all_services.sh
