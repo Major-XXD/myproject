@@ -1,0 +1,394 @@
+# Installing Pi-hole on Android Termux
+
+## Prerequisites
+- Samsung Galaxy S9+ with Termux installed
+- Root access (recommended but not strictly required)
+- Stable internet connection
+- At least 2GB free storage
+
+## Step 1: Update Termux and Install Dependencies
+
+```bash
+# Update packages
+pkg update && pkg upgrade -y
+
+# Install required packages
+pkg install git curl wget php lighttpd sqlite dnsmasq netcat-openbsd coreutils grep sed gawk findutils procps
+```
+
+## Step 2: Install Additional Dependencies
+
+```bash
+# Install Python and pip (needed for some Pi-hole scripts)
+pkg install python python-pip
+
+# Install dig and other DNS tools
+pkg install bind-tools
+
+# Install sudo (termux version)
+pkg install tsu
+```
+
+## Step 3: Create Pi-hole Directory Structure
+
+```bash
+# Create Pi-hole directories
+mkdir -p ~/pihole/{etc,var/log,var/lib/misc}
+cd ~/pihole
+
+# Create necessary files
+touch var/log/pihole.log
+touch etc/pihole-FTL.conf
+```
+
+## Step 4: Download and Modify Pi-hole
+
+Since the official Pi-hole installer doesn't work on Android, we'll use a modified approach:
+
+```bash
+# Clone Pi-hole repository
+git clone https://github.com/pi-hole/pi-hole.git
+cd pi-hole
+
+# Create a custom installation directory
+export PIHOLE_DIR="$HOME/pihole"
+export PIHOLE_INSTALL_DIR="$PIHOLE_DIR"
+```
+
+## Step 5: Manual Pi-hole Setup
+
+Create the main Pi-hole configuration:
+
+```bash
+# Create basic Pi-hole configuration
+cat > ~/pihole/etc/pihole-FTL.conf << 'EOF'
+LOGFILE=/data/data/com.termux/files/home/pihole/var/log/pihole.log
+PIDFILE=/data/data/com.termux/files/home/pihole/var/run/pihole-FTL.pid
+SOCKETFILE=/data/data/com.termux/files/home/pihole/var/run/pihole-FTL.sock
+SETUPVARS_FILE=/data/data/com.termux/files/home/pihole/etc/setupVars.conf
+MACVENDORDB=/data/data/com.termux/files/home/pihole/etc/macvendor.db
+GRAVITYDB=/data/data/com.termux/files/home/pihole/etc/pihole-FTL.db
+EOF
+```
+
+## Step 6: Configure Dnsmasq
+
+```bash
+# Create dnsmasq configuration
+cat > ~/pihole/etc/dnsmasq.conf << 'EOF'
+# Pi-hole dnsmasq configuration
+domain-needed
+bogus-priv
+no-resolv
+server=8.8.8.8
+server=8.8.4.4
+server=1.1.1.1
+interface=lo
+bind-interfaces
+listen-address=127.0.0.1
+cache-size=10000
+local-ttl=2
+log-queries
+log-facility=/data/data/com.termux/files/home/pihole/var/log/pihole.log
+conf-file=/data/data/com.termux/files/home/pihole/etc/adlists.list
+EOF
+```
+
+## Step 7: Download Blocklists
+
+```bash
+# Create blocklist directory
+mkdir -p ~/pihole/etc/blocklists
+
+# Download popular blocklists
+cd ~/pihole/etc/blocklists
+
+# Steven Black's hosts file
+wget -O hosts.txt "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
+
+# AdGuard DNS filter
+wget -O adguard.txt "https://raw.githubusercontent.com/AdguardTeam/AdguardFilters/master/DNSFilter/sections/adservers.txt"
+
+# EasyList
+wget -O easylist.txt "https://easylist.to/easylist/easylist.txt"
+```
+
+## Step 8: Process Blocklists
+
+Create a script to process the blocklists:
+
+```bash
+cat > ~/pihole/process_blocklists.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+PIHOLE_DIR="$HOME/pihole"
+BLOCKLIST_DIR="$PIHOLE_DIR/etc/blocklists"
+OUTPUT_FILE="$PIHOLE_DIR/etc/adlists.list"
+
+echo "Processing blocklists..."
+
+# Clear the output file
+> "$OUTPUT_FILE"
+
+# Process each blocklist
+for file in "$BLOCKLIST_DIR"/*.txt; do
+    if [ -f "$file" ]; then
+        echo "Processing $(basename "$file")..."
+        
+        # Extract domains and add to dnsmasq format
+        grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+' "$file" | \
+        grep -v '^#' | \
+        grep -v 'localhost' | \
+        awk '{print $2}' | \
+        grep -E '^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$' | \
+        sed 's/^/address=\//' | \
+        sed 's/$/\/0.0.0.0/' >> "$OUTPUT_FILE"
+    fi
+done
+
+echo "Blocklist processing complete. $(wc -l < "$OUTPUT_FILE") domains blocked."
+EOF
+
+chmod +x ~/pihole/process_blocklists.sh
+```
+
+## Step 9: Create Pi-hole Web Interface
+
+```bash
+# Create web directory
+mkdir -p ~/pihole/var/www/html/admin
+
+# Download Pi-hole AdminLTE interface
+cd ~/pihole/var/www/html
+git clone https://github.com/pi-hole/AdminLTE.git admin
+
+# Create a simple PHP info page for testing
+cat > ~/pihole/var/www/html/info.php << 'EOF'
+<?php
+echo "<h1>Pi-hole Status</h1>";
+echo "<p>Pi-hole is running on Android Termux</p>";
+echo "<p>Blocked domains: " . shell_exec("wc -l < ~/pihole/etc/adlists.list") . "</p>";
+phpinfo();
+?>
+EOF
+```
+
+## Step 10: Configure Lighttpd
+
+```bash
+# Create lighttpd configuration
+cat > ~/pihole/etc/lighttpd.conf << 'EOF'
+server.document-root = "/data/data/com.termux/files/home/pihole/var/www/html"
+server.port = 8080
+server.bind = "127.0.0.1"
+
+mimetype.assign = (
+  ".html" => "text/html",
+  ".txt" => "text/plain",
+  ".jpg" => "image/jpeg",
+  ".png" => "image/png",
+  ".css" => "text/css",
+  ".js" => "application/javascript"
+)
+
+index-file.names = ( "index.html", "index.php" )
+
+server.modules = (
+  "mod_indexfile",
+  "mod_access",
+  "mod_alias",
+  "mod_redirect",
+  "mod_fastcgi"
+)
+
+fastcgi.server = ( ".php" =>
+  ((
+    "bin-path" => "/data/data/com.termux/files/usr/bin/php-cgi",
+    "socket" => "/tmp/php.socket"
+  ))
+)
+EOF
+```
+
+## Step 11: Create Startup Script
+
+```bash
+cat > ~/pihole/start_pihole.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+PIHOLE_DIR="$HOME/pihole"
+export PIHOLE_DIR
+
+echo "Starting Pi-hole services..."
+
+# Process blocklists
+echo "Processing blocklists..."
+$PIHOLE_DIR/process_blocklists.sh
+
+# Start dnsmasq
+echo "Starting DNS server..."
+dnsmasq -C $PIHOLE_DIR/etc/dnsmasq.conf --pid-file=$PIHOLE_DIR/var/run/dnsmasq.pid
+
+# Start web server
+echo "Starting web interface..."
+lighttpd -f $PIHOLE_DIR/etc/lighttpd.conf -D &
+
+echo "Pi-hole started successfully!"
+echo "Web interface: http://localhost:8080"
+echo "DNS server: 127.0.0.1:53"
+echo ""
+echo "To use Pi-hole as your DNS:"
+echo "1. Change your device's DNS to 127.0.0.1"
+echo "2. Or set up your router to use this device's IP as DNS"
+EOF
+
+chmod +x ~/pihole/start_pihole.sh
+```
+
+## Step 12: Create Stop Script
+
+```bash
+cat > ~/pihole/stop_pihole.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+echo "Stopping Pi-hole services..."
+
+# Stop dnsmasq
+if [ -f ~/pihole/var/run/dnsmasq.pid ]; then
+    kill $(cat ~/pihole/var/run/dnsmasq.pid)
+    rm ~/pihole/var/run/dnsmasq.pid
+fi
+
+# Stop lighttpd
+pkill lighttpd
+
+echo "Pi-hole services stopped."
+EOF
+
+chmod +x ~/pihole/stop_pihole.sh
+```
+
+## Step 13: Start Pi-hole
+
+```bash
+# Start Pi-hole
+~/pihole/start_pihole.sh
+```
+
+## Step 14: Configure Your Network
+
+### Option 1: Configure Individual Device
+1. Go to WiFi settings on your device
+2. Modify the current network
+3. Change DNS to `127.0.0.1` (your phone's IP)
+
+### Option 2: Configure Router (Recommended)
+1. Access your router's admin panel
+2. Set primary DNS to your phone's local IP address
+3. Set secondary DNS to `8.8.8.8` or `1.1.1.1`
+
+## Step 15: Testing Pi-hole
+
+```bash
+# Test DNS resolution
+nslookup google.com 127.0.0.1
+
+# Test ad blocking
+nslookup doubleclick.net 127.0.0.1  # Should return 0.0.0.0
+
+# Check logs
+tail -f ~/pihole/var/log/pihole.log
+```
+
+## Making It Accessible via Ngrok
+
+```bash
+# Install ngrok (if not already installed)
+npm install -g ngrok
+
+# Expose Pi-hole web interface
+ngrok http 8080
+
+# For DNS over HTTPS (if needed)
+ngrok tcp 53
+```
+
+## Updating Blocklists
+
+Create a cron-like script for regular updates:
+
+```bash
+cat > ~/pihole/update_blocklists.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+cd ~/pihole/etc/blocklists
+
+echo "Updating blocklists..."
+
+# Update Steven Black's hosts
+wget -O hosts.txt.new "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
+mv hosts.txt.new hosts.txt
+
+# Update other lists...
+# Add more wget commands for other lists
+
+# Reprocess blocklists
+~/pihole/process_blocklists.sh
+
+# Restart dnsmasq
+if [ -f ~/pihole/var/run/dnsmasq.pid ]; then
+    kill -HUP $(cat ~/pihole/var/run/dnsmasq.pid)
+fi
+
+echo "Blocklists updated successfully!"
+EOF
+
+chmod +x ~/pihole/update_blocklists.sh
+```
+
+## Troubleshooting
+
+**DNS not working:**
+```bash
+# Check if dnsmasq is running
+ps aux | grep dnsmasq
+
+# Test local DNS resolution
+dig @127.0.0.1 google.com
+```
+
+**Web interface not accessible:**
+```bash
+# Check if lighttpd is running
+ps aux | grep lighttpd
+
+# Check port binding
+netstat -tlnp | grep 8080
+```
+
+**Permission errors:**
+```bash
+# Make sure all scripts are executable
+chmod +x ~/pihole/*.sh
+
+# Check file permissions
+ls -la ~/pihole/
+```
+
+## Performance Tips
+
+1. **Keep device plugged in** - DNS serving is CPU intensive
+2. **Use a cooling solution** for extended operation
+3. **Monitor memory usage** - adjust cache sizes if needed
+4. **Regular updates** - keep blocklists current
+5. **Backup configuration** regularly
+
+## Security Considerations
+
+- This setup provides local ad blocking only
+- For network-wide blocking, configure your router properly
+- Consider firewall rules if exposing to the internet
+- Regular security updates for Termux packages
+- Monitor logs for suspicious activity
+
+Your Samsung Galaxy S9+ is now running Pi-hole! The web interface will be available at `http://localhost:8080` and you can monitor blocked queries and statistics there.
