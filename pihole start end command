@@ -1,0 +1,138 @@
+# Create a simple start script for Pi-hole
+cat > ~/start_pihole.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+echo "Starting Pi-hole services..."
+
+# Start PHP-CGI for web interface
+php-cgi -b 127.0.0.1:9000 &
+echo "PHP-CGI started on port 9000"
+
+# Start Nginx web server
+nginx -c ~/pihole/nginx_pihole.conf
+echo "Nginx started on port 8080"
+
+# Start DNS server (dnsmasq)
+mkdir -p ~/pihole/var/run
+dnsmasq -C ~/pihole/etc/dnsmasq.conf --pid-file=~/pihole/var/run/dnsmasq.pid
+echo "Dnsmasq started on port 5353"
+
+echo ""
+echo "Pi-hole is now running!"
+echo "Dashboard: http://localhost:8080/admin/"
+echo "DNS Server: 127.0.0.1:5353"
+EOF
+
+chmod +x ~/start_pihole.sh
+
+# Create a simple stop script for Pi-hole
+cat > ~/stop_pihole.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+echo "Stopping Pi-hole services..."
+
+# Stop Nginx
+if pgrep nginx > /dev/null; then
+    pkill nginx
+    echo "Nginx stopped"
+fi
+
+# Stop PHP-CGI
+if pgrep php-cgi > /dev/null; then
+    pkill php-cgi
+    echo "PHP-CGI stopped"
+fi
+
+# Stop dnsmasq
+if [ -f ~/pihole/var/run/dnsmasq.pid ]; then
+    kill $(cat ~/pihole/var/run/dnsmasq.pid)
+    rm ~/pihole/var/run/dnsmasq.pid
+    echo "Dnsmasq stopped"
+elif pgrep dnsmasq > /dev/null; then
+    pkill dnsmasq
+    echo "Dnsmasq stopped"
+fi
+
+echo ""
+echo "Pi-hole services stopped"
+EOF
+
+chmod +x ~/stop_pihole.sh
+
+# Create a status check script
+cat > ~/pihole_status.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+echo "Pi-hole Service Status:"
+echo "======================"
+
+if pgrep nginx > /dev/null; then
+    echo "✓ Nginx (Web Server): Running on port 8080"
+else
+    echo "✗ Nginx (Web Server): Stopped"
+fi
+
+if pgrep php-cgi > /dev/null; then
+    echo "✓ PHP-CGI (Web Interface): Running on port 9000"
+else
+    echo "✗ PHP-CGI (Web Interface): Stopped"
+fi
+
+if pgrep dnsmasq > /dev/null; then
+    echo "✓ Dnsmasq (DNS Server): Running on port 5353"
+else
+    echo "✗ Dnsmasq (DNS Server): Stopped"
+fi
+
+echo ""
+if pgrep nginx > /dev/null && pgrep php-cgi > /dev/null && pgrep dnsmasq > /dev/null; then
+    echo "Pi-hole Status: FULLY OPERATIONAL"
+    echo "Dashboard: http://localhost:8080/admin/"
+elif pgrep nginx > /dev/null && pgrep php-cgi > /dev/null; then
+    echo "Pi-hole Status: WEB INTERFACE ONLY (No DNS blocking)"
+    echo "Dashboard: http://localhost:8080/admin/"
+else
+    echo "Pi-hole Status: STOPPED"
+fi
+EOF
+
+chmod +x ~/pihole_status.sh
+
+# Create a restart script
+cat > ~/restart_pihole.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+echo "Restarting Pi-hole..."
+
+# Stop all services
+~/stop_pihole.sh
+
+# Wait a moment
+sleep 2
+
+# Start all services
+~/start_pihole.sh
+EOF
+
+chmod +x ~/restart_pihole.sh
+
+echo ""
+echo "Pi-hole control scripts created successfully!"
+echo ""
+echo "Available commands:"
+echo "=================="
+echo ""
+echo "START Pi-hole:"
+echo "  ~/start_pihole.sh"
+echo ""
+echo "STOP Pi-hole:"
+echo "  ~/stop_pihole.sh"
+echo ""
+echo "CHECK STATUS:"
+echo "  ~/pihole_status.sh"
+echo ""
+echo "RESTART Pi-hole:"
+echo "  ~/restart_pihole.sh"
+echo ""
+echo "Current status:"
+~/pihole_status.sh
